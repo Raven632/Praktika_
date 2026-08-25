@@ -1,0 +1,13 @@
+---
+- name: Auto update
+  hosts: myhosts
+  become: yes
+
+  tasks:
+    - name: Apt update
+      apt:
+        upgrade: dist
+        update_cache: yes
+    
+    - name: Restart
+      reboot:

@@ -1,0 +1,71 @@
+name: Deploy Terraform + Ansible
+
+on:
+  workflow_dispatch:
+    inputs:
+      vm_count:
+        description: 'How much do u want?'
+        required: true
+        default: '1'
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write  
+      contents: read
+    steps:
+      - name: Download Code from repo
+        uses: actions/checkout@v4
+
+      - name: Install Terraform, Ansible & Proxmox dependencies
+        run: |
+          apt-get update
+          apt-get install -y python3-pip sshpass wget unzip jq
+          
+          # Добавляем proxmoxer для работы динамического инвентаря
+          pip3 install ansible proxmoxer requests --break-system-packages
+          
+          # Устанавливаем коллекцию Proxmox для Ansible
+          ansible-galaxy collection install community.proxmox community.docker
+          
+          # Скачиваем и устанавливаем Terraform
+          wget https://releases.hashicorp.com/terraform/1.8.4/terraform_1.8.4_linux_amd64.zip
+          unzip terraform_1.8.4_linux_amd64.zip
+          mv terraform /usr/local/bin/
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Terraform Apply
+        env:
+          TF_VAR_proxmox_api_token: ${{ secrets.PROXMOX_API_TOKEN }}
+          TF_VAR_vm_count: ${{ github.event.inputs.vm_count }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+          # говорим Terraform где искать MinIO и что не нужна AWS-валидация
+          AWS_EC2_METADATA_DISABLED: "true"
+        run: |
+          terraform init -reconfigure \
+            -backend-config="access_key=${{ secrets.MINIO_ACCESS_KEY }}" \
+            -backend-config="secret_key=${{ secrets.MINIO_SECRET_KEY }}"
+          terraform apply -auto-approve -lock=false
+
+      - name: Run Ansible via Dynamic Inventory
+        env:
+          # Передаем переменные, которые ожидает твой файл copy_my_proxmox.yml
+          PROXMOX_HOST: "192.0.2.10"
+          PROXMOX_USER: "root@pam"
+          PROXMOX_PASSWORD: ${{ secrets.PROXMOX_PASSWORD }}
+        run: |
+          # Даем виртуальной машине немного времени на запуск и получение IP от DHCP
+          echo "Waiting for VM to boot and acquire DHCP address..."
+          sleep 45
+
+          ansible-inventory -i copy_my_proxmox.yml --list
+          
+          # Запускаем Ansible, передавая YML файл инвентаря вместо статического IP
+          ansible-playbook -i copy_my_proxmox.yml proxmox_clone_copy.yaml

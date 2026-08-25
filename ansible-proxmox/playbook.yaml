@@ -1,0 +1,12 @@
+---
+- name: Auto instalation
+  hosts: myhosts
+  become: yes
+
+  tasks:
+    - name: instalation for tools
+      apt:
+        name:
+          - tree
+        state: present
+        update_cache: yes

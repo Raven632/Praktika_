@@ -1,0 +1,26 @@
+variant: fcos
+version: 1.5.0
+passwd: 
+  users: 
+    - name: core
+      ssh_authorized_keys:
+        - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIG2RKn22zxdVaBENrVZTFtC1CYOMWZKQmQ4r6TJBtPzq khalil@Mac-mini-von-Khalil.local"
+storage:
+  files:
+    - path: /etc/NetworkManager/system-connections/static.nmconnection
+      mode: 0600
+      contents:
+        inline: |
+          [connection]
+          id=static
+          type=ethernet
+
+          [ipv4]
+          method=manual
+          addresses=192.0.2.30/24
+          gateway=192.0.2.1
+          dns=8.8.8.8;192.0.2.1
+
+          [ipv6]
+          method=disabled
+

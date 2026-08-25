@@ -1,0 +1,13 @@
+---
+- name: Nginx in Docker -- Declaration for conf
+  hosts: myhosts
+  become: yes
+
+  tasks:
+    - name: Start for Docker
+      community.docker.docker_container:
+        name: Nginx
+        image: nginx:latest
+        state: {{ status_nginx }}
+        ports: 
+          - "80:80"

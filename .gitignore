@@ -1,0 +1,61 @@
+# ---------------------------------------------------------------
+# .gitignore for the praktika repository
+# ---------------------------------------------------------------
+
+# macOS
+.DS_Store
+.AppleDouble
+._*
+
+# Terraform
+**/.terraform/*
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+crash.log
+crash.*.log
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+.terraform.lock.hcl
+
+# Ansible
+*.retry
+vault_pass.txt
+*.vault
+inventory/host_vars/*_secret.yml
+inventory/group_vars/*_secret.yml
+
+# Secrets and credentials — never commit these
+*.pem
+*.key
+*.crt
+*.p12
+id_rsa
+id_ed25519
+.env
+.env.*
+secrets.yml
+credentials.yml
+
+# Kubernetes
+kubeconfig
+*.kubeconfig
+admin.conf
+
+# Editors and IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs and temporary files
+*.log
+*.tmp
+tmp/

@@ -1,0 +1,76 @@
+---
+- name: Deploy Authentik via official Docker Compose
+  hosts: Authentik
+  become: yes
+  gather_facts: false
+  vars:
+    ansible_user: root
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
+    authentik_dir: /opt/authentik
+
+  tasks:
+    - name: Wait for SSH to be fully ready
+      wait_for_connection:
+        delay: 10
+        sleep: 10
+        timeout: 600
+
+    - name: Gather facts
+      setup:
+
+    - name: Wait for cloud-init
+      ansible.builtin.command: cloud-init status --wait
+      register: cloud_init_result
+      changed_when: false
+      failed_when: cloud_init_result.rc not in [0, 2]
+
+    - name: Install base dependencies and pip
+      ansible.builtin.apt:
+        name:
+          - openssl
+          - wget
+          - python3-pip
+        state: present
+        update_cache: yes
+
+    - name: instalation of docker and others bib
+      ansible.builtin.pip:
+        name:
+          - requests==2.31.0
+          - docker>=7.1.0
+        state: present
+        executable: pip3
+        extra_args: --break-system-packages --ignore-installed
+
+    - name: Create Authentik directory
+      ansible.builtin.file:
+        path: "{{ authentik_dir }}"
+        state: directory
+        mode: '0750'
+
+    - name: Download official compose.yml
+      ansible.builtin.get_url:
+        url: https://docs.goauthentik.io/compose.yml
+        dest: "{{ authentik_dir }}/compose.yml"
+        force: no  # не перезаписывать если уже есть
+
+    - name: Generate secrets (только если .env не существует)
+      ansible.builtin.shell: |
+        echo "PG_PASS=$(openssl rand -base64 36 | tr -d '\n')" >> {{ authentik_dir }}/.env
+        echo "AUTHENTIK_SECRET_KEY=$(openssl rand -base64 60 | tr -d '\n')" >> {{ authentik_dir }}/.env
+        echo "COMPOSE_PORT_HTTP=8000" >> {{ authentik_dir }}/.env
+        echo "COMPOSE_PORT_HTTPS=8443" >> {{ authentik_dir }}/.env
+      args:
+        creates: "{{ authentik_dir }}/.env"  # idempotent — запустится только если .env нет
+
+    - name: Pull images
+      ansible.builtin.command:
+        cmd: docker compose pull
+        chdir: "{{ authentik_dir }}"
+      changed_when: true
+
+    - name: Start Authentik
+      ansible.builtin.command:
+        cmd: docker compose up -d
+        chdir: "{{ authentik_dir }}"
+      changed_when: true

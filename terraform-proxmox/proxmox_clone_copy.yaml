@@ -1,0 +1,47 @@
+---
+- name: Start to deploy Docker and Nginx
+  hosts: "docker-node02-test*"
+  become: yes
+  gather_facts: false
+  vars:
+    ansible_user: root
+    ansible_ssh_common_args: '-o StrictHostKeyChecking=no' 
+
+  tasks:
+    - name: Wait for SSH to be fully ready
+      wait_for_connection:
+        delay: 10
+        sleep: 10
+        timeout: 600
+
+    - name: Gather facts manually after SSH is up
+      setup:
+    
+    - name: Waiting for end of cloud-init
+      ansible.builtin.command: cloud-init status --wait
+      register: cloud_init_result
+      changed_when: false
+      failed_when: cloud_init_result.rc not in [0, 2]
+
+    - name: instalationof pip3
+      ansible.builtin.apt:
+        name: python3-pip
+        state: present
+        update_cache: yes
+        
+    - name: instalation of docker and others bib
+      ansible.builtin.pip:
+        name:
+          - requests==2.31.0
+          - docker>=7.1.0
+        state: present
+        executable: pip3
+        extra_args: --break-system-packages --ignore-installed
+    
+    - name: Run Nginx container
+      community.docker.docker_container:
+        name: my-nginx
+        image: nginx:latest
+        state: started
+        published_ports:
+          - "80:80"

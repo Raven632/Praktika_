@@ -1,0 +1,48 @@
+name: Deploy CoreOS with Terraform
+
+on:
+  workflow_dispatch:
+    inputs:
+      vm_count:
+        description: 'How much do u want?'
+        required: true
+        default: '1'
+        type: string
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write  
+      contents: read
+    steps:
+      - name: Download Code from repo
+        uses: actions/checkout@v4
+
+      - name: Install Terraform, Proxmox dependencies
+        run: |
+          apt-get update
+          apt-get install -y python3-pip sshpass wget unzip jq
+
+          wget https://releases.hashicorp.com/terraform/1.8.4/terraform_1.8.4_linux_amd64.zip
+          unzip terraform_1.8.4_linux_amd64.zip
+          mv terraform /usr/local/bin/
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Terraform Apply
+        env:
+          TF_VAR_proxmox_password: ${{ secrets.PROXMOX_PASSWORD }}
+          TF_VAR_ssh_private_key: ${{ secrets.SSH_PRIVATE_KEY }}
+          TF_VAR_vm_count: ${{ github.event.inputs.vm_count }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.MINIO_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.MINIO_SECRET_KEY }}
+          AWS_EC2_METADATA_DISABLED: "true"
+        run: |
+          terraform init -reconfigure \
+            -backend-config="access_key=${{ secrets.MINIO_ACCESS_KEY }}" \
+            -backend-config="secret_key=${{ secrets.MINIO_SECRET_KEY }}"
+          terraform apply -auto-approve -lock=false

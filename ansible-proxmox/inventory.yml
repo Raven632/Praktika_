@@ -1,0 +1,14 @@
+myhosts:
+  hosts:
+    myhosts_01:
+      ansible_host: 192.0.2.101
+      ansible_user: ubuntu
+    myhosts_02:
+      ansible_host: 192.0.2.102
+      ansible_user: asd
+    myhosts_03:
+      ansible_host: 192.0.2.103
+      ansible_user: test2
+  vars:
+    status_nginx: stopped
+    status_proxmox_container: started

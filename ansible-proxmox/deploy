@@ -1,0 +1,45 @@
+name: Deploy Proxmox VM Clone + Ansible
+
+# Запускать пайплайн при каждом пуше в ветку main
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      target_node:
+        description: 'Choose node to deploy'
+        required: true
+        default: 'node02'       # Дефолтная нода (замени на свою основную)
+        type: choice         # Тип "выбор из списка"
+        options:
+          - node01              # Имя твоей первой ноды в Proxmox
+          - node02             # Имя второй ноды (пример)
+          - node03     # Имя третьей ноды (пример)
+  
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Code from repo
+        uses: actions/checkout@v4
+
+      - name: Download Ansible and others bib
+        run: |
+          apt-get update
+          apt-get install -y python3-pip sshpass
+          pip3 install ansible proxmoxer requests --break-system-packages
+
+      - name: SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      - name: Ansible Playbook
+        env:
+          PROXMOX_PASSWORD: ${{ secrets.PROXMOX_PASSWORD }} # Передаем секрет из Forgejo
+          PROXMOX_USER: ${{ secrets.PROXMOX_USER }}
+          PROXMOX_HOST: ${{ secrets.PROXMOX_HOST }}
+        run: |
+          ansible-galaxy collection install community.proxmox community.docker
+
+          ansible-playbook -i copy_my_proxmox.yml proxmox_clone_copy.yaml -e "target_node=${{ inputs.target_node || 'node02' }}"
